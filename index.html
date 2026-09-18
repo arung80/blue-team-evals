@@ -1,0 +1,454 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="description" content="Frontier LLM results on defensive cyber benchmarks: Cyber Defense Benchmark, AI SOC LLM Leaderboard, CWE-bench, DefenderBench, with Cybench as the offensive reference.">
+<title>Blue Team Evals</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+:root{
+  --ground:#EEF1F4;
+  --panel:#FFFFFF;
+  --ink:#122033;
+  --ink-2:#4A5A6E;
+  --ink-3:#7A8899;
+  --rule:#D6DDE5;
+  --track:#E4E9EF;
+  --accent:#1D5FA8;
+  --accent-soft:#DCE8F6;
+  --good:#1E7A4F; --good-bg:#DDF0E6;
+  --warn:#9A6200; --warn-bg:#F6EBD3;
+  --crit:#B3261E; --crit-bg:#F7DEDC;
+  --muted-bg:#E7EBF0;
+  --display:"IBM Plex Sans Condensed","Arial Narrow",system-ui,sans-serif;
+  --body:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --ground:#0D141C; --panel:#141E29; --ink:#E6ECF2; --ink-2:#A6B3C2; --ink-3:#74849A;
+    --rule:#243242; --track:#1F2B38; --accent:#6BA6EA; --accent-soft:#1B3150;
+    --good:#5CC592; --good-bg:#15352A; --warn:#E5B35A; --warn-bg:#3A2D12;
+    --crit:#F08A80; --crit-bg:#3F1D1B; --muted-bg:#1F2B38;
+  }
+}
+:root[data-theme="dark"]{
+  --ground:#0D141C; --panel:#141E29; --ink:#E6ECF2; --ink-2:#A6B3C2; --ink-3:#74849A;
+  --rule:#243242; --track:#1F2B38; --accent:#6BA6EA; --accent-soft:#1B3150;
+  --good:#5CC592; --good-bg:#15352A; --warn:#E5B35A; --warn-bg:#3A2D12;
+  --crit:#F08A80; --crit-bg:#3F1D1B; --muted-bg:#1F2B38;
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0}
+img{max-width:100%}
+[hidden]{display:none!important}
+body{background:var(--ground);color:var(--ink);font-family:var(--body);font-size:14px;line-height:1.5}
+.wrap{max-width:1180px;margin:0 auto;padding-inline:20px;padding-block:28px 56px;display:flex;flex-direction:column;gap:28px}
+h1,h2,h3{font-family:var(--display);margin:0;text-wrap:balance;letter-spacing:-.005em}
+h1{font-size:34px;font-weight:700;line-height:1.1}
+h2{font-size:21px;font-weight:600}
+h3{font-size:17px;font-weight:600}
+p{margin:0}
+a{color:var(--accent)}
+a:focus-visible,button:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:3px}
+.eyebrow{font-family:var(--mono);font-size:11px;text-transform:uppercase;letter-spacing:.09em;color:var(--ink-3)}
+.num{font-variant-numeric:tabular-nums}
+.mono{font-family:var(--mono)}
+
+header{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:flex-end;gap:16px;border-bottom:1px solid var(--rule);padding-bottom:20px}
+header .lede{color:var(--ink-2);max-width:62ch;margin-top:8px}
+.asof{font-family:var(--mono);font-size:12px;color:var(--ink-2);text-align:right}
+
+/* Summary cards */
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px}
+.card{background:var(--panel);border:1px solid var(--rule);border-radius:6px;padding:16px;display:flex;flex-direction:column;gap:10px;cursor:pointer;text-align:left;font:inherit;color:inherit}
+.card:hover{border-color:var(--accent)}
+.card .top{display:flex;justify-content:space-between;align-items:flex-start;gap:8px}
+.card .who{font-size:12px;color:var(--ink-3)}
+.card .task{font-size:13px;color:var(--ink-2);min-height:3em}
+.card .lead{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
+.card .big{font-family:var(--display);font-size:30px;font-weight:600;line-height:1}
+.card .leader{font-size:12px;color:var(--ink-2)}
+.meter{position:relative;height:6px;background:var(--track);border-radius:3px}
+.meter i{position:absolute;inset:0 auto 0 0;background:var(--accent);border-radius:3px}
+.meter b{position:absolute;top:-4px;bottom:-4px;width:2px;background:var(--crit)}
+.meter-cap{display:flex;justify-content:space-between;font-family:var(--mono);font-size:10.5px;color:var(--ink-3)}
+
+.chip{display:inline-flex;align-items:center;gap:5px;font-family:var(--mono);font-size:10.5px;font-weight:500;text-transform:uppercase;letter-spacing:.06em;padding:3px 7px;border-radius:3px;white-space:nowrap}
+.chip::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor}
+.chip.crit{color:var(--crit);background:var(--crit-bg)}
+.chip.warn{color:var(--warn);background:var(--warn-bg)}
+.chip.good{color:var(--good);background:var(--good-bg)}
+.chip.muted{color:var(--ink-2);background:var(--muted-bg)}
+
+/* Panels */
+.panel{background:var(--panel);border:1px solid var(--rule);border-radius:6px;padding:20px;display:flex;flex-direction:column;gap:16px}
+.panel-head{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:baseline;gap:8px}
+.sub{color:var(--ink-2);max-width:70ch}
+
+/* Landscape table */
+.scroll{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:13px}
+th{font-family:var(--mono);font-size:10.5px;font-weight:500;text-transform:uppercase;letter-spacing:.07em;color:var(--ink-3);text-align:left;padding:8px 10px;border-bottom:1px solid var(--rule);white-space:nowrap}
+td{padding:10px;border-bottom:1px solid var(--rule);vertical-align:top}
+tr:last-child td{border-bottom:0}
+td.r,th.r{text-align:right}
+.landscape td:first-child{font-weight:600;white-space:nowrap}
+.landscape td .small{display:block;font-weight:400;color:var(--ink-3);font-size:12px}
+
+/* Two-col */
+.split{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(0,1fr);gap:20px;align-items:start}
+@media (max-width:860px){.split{grid-template-columns:1fr}}
+
+/* Scatter */
+svg text{fill:var(--ink-2);font-family:var(--mono);font-size:10.5px}
+svg .axis-title{fill:var(--ink-3);font-size:10.5px;letter-spacing:.05em}
+svg .grid{stroke:var(--rule);stroke-width:1}
+svg .pt{fill:var(--accent);stroke:var(--panel);stroke-width:2}
+svg .pt-label{fill:var(--ink);font-family:var(--body);font-size:11.5px}
+.takeaways{display:flex;flex-direction:column;gap:12px;margin:0;padding:0;list-style:none}
+.takeaways li{padding-left:14px;border-left:2px solid var(--rule);color:var(--ink-2)}
+.takeaways strong{color:var(--ink);font-weight:600}
+
+/* Tabs */
+.tabs{display:flex;flex-wrap:wrap;gap:4px;border-bottom:1px solid var(--rule)}
+.tab{font:inherit;font-size:13px;font-weight:500;color:var(--ink-2);background:none;border:0;border-bottom:2px solid transparent;padding:8px 12px;margin-bottom:-1px;cursor:pointer}
+.tab[aria-selected="true"]{color:var(--accent);border-bottom-color:var(--accent)}
+.tab:hover{color:var(--ink)}
+.detail{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(0,1fr);gap:24px;align-items:start}
+@media (max-width:860px){.detail{grid-template-columns:1fr}}
+.method{display:flex;flex-direction:column;gap:14px;background:var(--ground);border-radius:6px;padding:16px}
+.method dl{display:grid;grid-template-columns:auto 1fr;gap:6px 14px;margin:0;font-size:13px}
+.method dt{font-family:var(--mono);font-size:10.5px;text-transform:uppercase;letter-spacing:.07em;color:var(--ink-3);padding-top:2px}
+.method dd{margin:0}
+.caveat{font-size:12.5px;color:var(--ink-2);border-top:1px solid var(--rule);padding-top:12px}
+
+/* Bars */
+.bars{display:flex;flex-direction:column;gap:2px}
+.bar-row{display:grid;grid-template-columns:minmax(120px,190px) 1fr auto;gap:10px;align-items:center;padding:3px 0;font-size:13px}
+.bar-row .name{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bar-row .name .org{color:var(--ink-3);font-size:11.5px;margin-left:4px}
+.bar-track{position:relative;height:14px;background:var(--track);border-radius:2px}
+.bar-track i{position:absolute;inset:0 auto 0 0;background:var(--accent);border-radius:2px;opacity:.88}
+.bar-row.first .bar-track i{opacity:1}
+.bar-track b{position:absolute;top:-3px;bottom:-3px;width:2px;background:var(--crit)}
+.bar-row .val{font-family:var(--mono);font-size:12px;min-width:118px;text-align:right;color:var(--ink-2)}
+.bar-row .val strong{color:var(--ink);font-weight:500}
+.bar-legend{display:flex;flex-wrap:wrap;gap:14px;font-size:12px;color:var(--ink-3);margin-top:6px}
+.bar-legend span{display:inline-flex;align-items:center;gap:6px}
+.bar-legend .sw{width:10px;height:10px;background:var(--accent);border-radius:2px}
+.bar-legend .ln{width:2px;height:12px;background:var(--crit)}
+.dots{display:inline-flex;gap:2px;vertical-align:middle;margin-right:6px}
+.dots s{width:5px;height:9px;border-radius:1px;background:var(--track);text-decoration:none}
+.dots s.on{background:var(--good)}
+@media (max-width:520px){
+  .bar-row{grid-template-columns:1fr auto;}
+  .bar-row .bar-track{grid-column:1 / -1;grid-row:2}
+  .bar-row .val{min-width:0}
+}
+
+/* Heat table */
+.heat td.h{font-family:var(--mono);font-size:12px;text-align:right}
+.heat td:first-child{white-space:nowrap}
+.heat tr.hl td{font-weight:600}
+
+footer{font-size:12px;color:var(--ink-3);display:flex;flex-direction:column;gap:6px}
+footer ul{margin:0;padding-left:18px;columns:2;column-gap:32px}
+@media (max-width:640px){footer ul{columns:1}}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header>
+    <div>
+      <div class="eyebrow">Defensive cyber · LLM evaluation tracker</div>
+      <h1>Blue Team Evals</h1>
+      <p class="lede">Five benchmarks that ask whether frontier models can do defenders' work: hunting through raw logs, triaging alerts, patching vulnerable code. Cybench (offensive CTF) is included as the capability ceiling they're usually compared against.</p>
+    </div>
+    <div class="asof">Data compiled<br><strong class="num">17 Sep 2026</strong></div>
+  </header>
+
+  <section class="cards" id="cards" aria-label="Benchmark summary"></section>
+
+  <section class="panel">
+    <div class="panel-head">
+      <h2>How the benchmarks differ</h2>
+      <span class="eyebrow">What's being tested</span>
+    </div>
+    <div class="scroll">
+      <table class="landscape">
+        <thead><tr><th>Benchmark</th><th>Defender task</th><th>Input</th><th>Scoring</th><th class="r">Models</th><th>Status</th></tr></thead>
+        <tbody id="landscape"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="panel">
+    <div class="panel-head">
+      <h2>Hunting vs. patching: same models, two jobs</h2>
+      <span class="eyebrow">8 models scored on both</span>
+    </div>
+    <div class="split">
+      <div class="scroll"><svg id="scatter" viewBox="0 0 600 380" role="img" aria-label="Scatter plot of Cyber Defense Benchmark coverage against CWE-bench pass@1 for eight models" style="width:100%;min-width:480px;height:auto"></svg></div>
+      <ul class="takeaways">
+        <li><strong>Top scores are low on every defensive benchmark.</strong> The best threat hunter covers 45% of attack activity. The best patcher fixes 48% of vulnerabilities. Neither benchmark has a model above half.</li>
+        <li><strong>Being good at one job doesn't predict the other.</strong> Gemini 3.7 Flash is near the top on patching (44.0%) but mid-table on hunting (0.291). Kimi K3 is mid-pack on hunting and near the bottom on patching.</li>
+        <li><strong>GPT‑5.6 Sol is the only one of these eight in the top two on both.</strong> Grok 4.6 hunts almost as well but patches less.</li>
+        <li><strong>The offense–defense gap is wide.</strong> Claude Opus 4.6 solves 93% of Cybench's offensive CTFs but covers only 0.445 of attack activity on the Cyber Defense Benchmark.</li>
+      </ul>
+    </div>
+  </section>
+
+  <section class="panel">
+    <div class="panel-head">
+      <h2>Leaderboards</h2>
+      <span class="eyebrow">Full published results</span>
+    </div>
+    <div class="tabs" role="tablist" id="tabs"></div>
+    <div id="detail" role="tabpanel"></div>
+  </section>
+
+  <footer>
+    <p><strong>How to read these numbers.</strong> Each benchmark uses its own metric and harness, so scores can't be compared across benchmarks. Simbian and Collinear build commercial security products and run their own leaderboards. Recent Cybench scores come from model system cards, not the original harness.</p>
+    <p>Sources</p>
+    <ul>
+      <li><a href="https://simbian.ai/research/cyber-defense-benchmark">Simbian: Cyber Defense Benchmark leaderboard</a></li>
+      <li><a href="https://arxiv.org/abs/2604.19533">arXiv 2604.19533: Cyber Defense Benchmark paper</a></li>
+      <li><a href="https://github.com/simbianai/cyber_defense_benchmark">simbianai/cyber_defense_benchmark (GitHub)</a></li>
+      <li><a href="https://simbian.ai/best-ai-for-cybersecurity">Simbian: AI SOC LLM Leaderboard</a></li>
+      <li><a href="https://cwe-bench.com/">Collinear AI: CWE-bench leaderboard</a></li>
+      <li><a href="https://blog.collinear.ai/p/cwe-bench">Collinear AI: CWE-bench methodology</a></li>
+      <li><a href="https://cybench.github.io/">Cybench leaderboard</a></li>
+      <li><a href="https://arxiv.org/abs/2506.00739">arXiv 2506.00739: DefenderBench</a></li>
+    </ul>
+  </footer>
+</div>
+
+<script>
+const B = [
+  {
+    id:"cdb", name:"Cyber Defense Benchmark", org:"Simbian AI", kind:"Threat hunting",
+    task:"Hunt through raw Windows logs with no alert to start from, and flag the malicious events.",
+    input:"75K–135K Sysmon & Security log records per episode, SQL access, 50-query budget",
+    scoring:"Coverage score + exact flag matching; pass = >50% recall on all 13 ATT&CK tactics",
+    status:["crit","0 / 25 pass"], big:"0.451", bigUnit:"coverage", leader:"Claude Opus 5",
+    meter:{v:45.1, pass:null, lo:"0", hi:"1.0"}, date:"Jun 2026",
+    unit:"coverage", max:0.5, pass:null,
+    rows:[
+      ["Claude Opus 5",0.451,4.91,3.76,7],["Claude Opus 4.6",0.445,4.37,2.71,7],["Grok 4.6",0.413,4.08,1.58,6],
+      ["GPT‑5.6 Sol",0.410,4.78,4.03,6],["GPT‑5.5",0.374,4.64,4.50,2],["Claude Sonnet 4.6",0.369,4.12,2.21,2],
+      ["GLM 5.2",0.350,3.37,2.01,1],["DeepSeek 4 Pro 0813",0.340,3.78,0.97,1],["Kimi K3",0.330,3.11,2.38,0],
+      ["Claude Opus 4.8",0.327,3.07,1.69,1],["Claude Opus 4.7",0.309,3.03,1.65,0],["DeepSeek 4 Flash 0731",0.297,4.90,0.17,1],
+      ["Qwen 3.8 Max",0.295,2.50,1.59,0],["Gemini 3.7 Flash",0.291,3.70,0.82,0],["Kimi 2.7 Code",0.267,2.92,1.51,0],
+      ["GPT‑5.6 Terra",0.225,2.36,0.82,0],["Claude Sonnet 5",0.199,1.61,1.90,0],["Qwen 3.7",0.191,2.02,0.21,0],
+      ["Gemini 3.6 Flash",0.187,2.38,1.34,0],["Claude Haiku 4.5",0.176,1.68,0.32,0],["GPT‑5.6 Luna",0.157,1.66,0.08,0],
+      ["MiniMax 3",0.155,1.41,0.31,0],["Gemini 3 Flash",0.146,1.44,0.16,0],["Nemotron 3 Super",0.091,0.96,0.15,0],
+      ["Gemini 3.5 Flash‑Lite",0.087,1.14,0.03,0]
+    ],
+    method:[["Corpus","106 real attack procedures (OTRF Security‑Datasets), 93 ATT&CK sub‑techniques, 13 tactics"],
+            ["Episodes","26 multi-stage campaigns; 1,080 runs total; $1,267 API spend"],
+            ["Harness","Plain ReAct loop, Gymnasium environment, in‑memory SQL database"],
+            ["Anti-memorization","Seeded time‑shifting and entity obfuscation of the recordings"],
+            ["Grading","Exact timestamp flag matching, no LLM judge"]],
+    caveat:"Best flag rate is under 5%. The coverage score is more forgiving, but no model reaches 50% recall on more than 7 of 13 tactics. The April v1.0 paper tested 5 models; the June leaderboard has 25."
+  },
+  {
+    id:"soc", name:"AI SOC LLM Leaderboard", org:"Simbian AI", kind:"Alert triage",
+    task:"Start from an alert and investigate it through to a verdict across the full kill chain.",
+    input:"100 full-kill-chain SOC scenarios modelled on APT32, APT38, APT43, Cobalt Group, Lapsus$",
+    scoring:"% of investigation ground truth reached (automated)",
+    status:["warn","None ≥ 70%"], big:"67.6%", bigUnit:"score", leader:"Claude 3.5 Sonnet",
+    meter:{v:67.6, pass:70, lo:"0", hi:"100%"}, date:"2025 models",
+    unit:"%", max:100, pass:70,
+    rows:[["Claude 3.5 Sonnet",67.6],["Gemini 2.5 Pro Preview",66.4],["Claude Opus 4",65.7],["GPT‑4.1",63.0],
+          ["Claude Sonnet 4",62.1],["Claude 3.7 Sonnet",61.9],["DeepSeek R1",61.4]],
+    method:[["Scenarios","100 ransomware- and phishing-heavy scenarios with ground truth"],
+            ["Starting point","An alert is given, unlike the Cyber Defense Benchmark"],
+            ["Threshold","Simbian cites 70% as the bar for autonomous triage"]],
+    caveat:"The published table only covers 2025-generation models and has no date. Treat it as a historical baseline, not a current ranking."
+  },
+  {
+    id:"cwe", name:"CWE-bench", org:"Collinear AI", kind:"Vulnerability repair",
+    task:"Audit a real open-source codebase, then patch the weakness so the exploit fails and the existing tests still pass.",
+    input:"100 held-out tasks, 54 CWEs, all OWASP Top 10 2025 categories; C/C++, Go, Java, TS/JS, Python, Rust",
+    scoring:"pass@1, deterministic verifier: exploit blocked AND all pre-existing tests pass",
+    status:["crit","18 tasks unsolved"], big:"47.8%", bigUnit:"pass@1", leader:"Claude Fable 5",
+    meter:{v:47.8, pass:50, lo:"0", hi:"100%"}, date:"2 Sep 2026",
+    unit:"%", max:60, pass:50,
+    rows:[["Claude Fable 5",47.8,"Claude Code",10.27],["Gemini 3.8 Flash Cyber",47.2,"Antigravity",3.64],
+          ["GPT‑5.6 Sol",44.2,"Codex",2.29],["Gemini 3.7 Flash",44.0,"Antigravity",1.43],
+          ["Claude Opus 4.8",42.0,"Claude Code",2.43],["Grok 4.6",38.2,"grok-cli",1.77],
+          ["Qwen 3.8 Max",37.5,"opencode",1.45],["Hy4 preview",33.8,"opencode",0.75],["GLM‑5.3",31.1,"opencode",1.86],
+          ["DeepSeek V4 Flash",30.4,"opencode",0.13],["Muse Spark 1.2",30.3,"opencode",2.09],["MiniMax M3",22.7,"opencode",0.69],
+          ["Kimi K3",22.5,"opencode",1.18],["Nemotron 3 Ultra (550B)",18.5,"opencode",1.17],["Inkling",15.6,"opencode",1.76]],
+    method:[["Tasks","100 agentic audit-and-patch tasks on known open-source code"],
+            ["Harness","Each model's native agent where it has one (Claude Code, Codex, Antigravity), otherwise opencode"],
+            ["Grading","Programmatic only (programmatic == 1), no LLM judge"],
+            ["Design","The vulnerabilities are public, so memorizing a fix isn't enough to pass"]],
+    caveat:"Harnesses differ between vendors, so part of each score reflects the agent scaffold rather than the model. Fable 5 was run at maximum reasoning effort and costs about 4× more per rollout than the runner-up."
+  },
+  {
+    id:"cybench", name:"Cybench", org:"Stanford CRFM", kind:"Offensive CTF (reference)",
+    task:"Solve professional capture-the-flag challenges end to end. This is offensive work, used as a proxy for dual-use skill.",
+    input:"40 tasks from 4 CTF competitions: crypto, web, rev, forensics, misc, pwn",
+    scoring:"Unguided % solved (no subtask hints)",
+    status:["good","Saturated"], big:"100%", bigUnit:"unguided", leader:"Claude Mythos Preview",
+    meter:{v:100, pass:null, lo:"0", hi:"100%"}, date:"May 2026",
+    unit:"%", max:100, pass:null,
+    rows:[["Claude Mythos Preview",100,35],["Claude Opus 4.7",96,35],["Claude Opus 4.6",93,37],["Claude Opus 4.5",82,39],
+          ["Muse Spark",65.4,40],["Claude Sonnet 4.5",60,39],["Grok 4",43,40],["Claude Opus 4.1",42,39],
+          ["Grok 4.1 Thinking",39,40],["Claude Opus 4",38,37],["Claude Sonnet 4",35,37],["Grok 4 Fast",30,40],
+          ["OpenAI o3‑mini",22.5,40],["Claude 3.7 Sonnet",20,40],["GPT‑4.5 preview",17.5,40],["Claude 3.5 Sonnet",17.5,40],
+          ["GPT‑4o",12.5,40],["OpenAI o1‑mini",10,40],["OpenAI o1‑preview",10,40],["Claude 3 Opus",10,40],
+          ["Llama 3.1 405B",7.5,40],["Mixtral 8x22B",7.5,40],["Gemini 1.5 Pro",7.5,40],["Llama 3 70B",5,40]],
+    method:[["Tasks","40 professional-level CTF tasks, each with subtasks for guided runs"],
+            ["Metric","Unguided % solved; the original paper also reports subtask-guided runs"],
+            ["Trajectory","GPT‑4o 12.5% (2024) → Claude Mythos Preview 100% pass@1 (2026)"]],
+    caveat:"Recent entries come from vendor system cards and some were run on a 35–39 task subset (the grey number after each score). Cybench is effectively saturated and no longer separates frontier models."
+  },
+  {
+    id:"defb", name:"DefenderBench", org:"Academic (arXiv 2506.00739)", kind:"Mixed blue-team toolkit",
+    task:"Eight tasks: network intrusion simulation, phishing detection, threat-intel Q&A, and finding and fixing code vulnerabilities.",
+    input:"CyberBattleSim, phishing email/SMS/web data, CTI MCQA, CodeXGLUE, Devign, CVEfix",
+    scoring:"Unweighted mean of task metrics (win rate, macro‑F1, CodeBLEU)",
+    status:["muted","Dated (2025)"], big:"81.7", bigUnit:"DefB score", leader:"Claude 3.7 Sonnet",
+    meter:{v:81.65, pass:null, base:43.81, lo:"0", hi:"100"}, date:"Jun 2025",
+    unit:"score", max:100, pass:null, base:43.81,
+    cols:["CBS‑Chain","CBS‑CTF","Mal. text","Mal. web","CTI MCQA","Vuln CG","Vuln DV","CVEfix","DefB"],
+    rows:[
+      ["Claude 3.7 Sonnet",100,100,96.2,90,74.2,56.6,56,80.18,81.65],
+      ["Claude 3.7 Sonnet (think)",100,76.67,94.4,91,78.2,54.6,52.8,79.5,78.4],
+      ["Claude 3.5 Sonnet",100,56.67,93.8,88.2,72.4,56.4,56.8,75.74,75.0],
+      ["GPT‑4 Turbo",90,46.67,93.4,83.2,73.8,58.2,57.6,73.72,72.07],
+      ["Llama 3.3 70B",100,33.33,96,82.8,69.6,58,57.4,77.31,71.81],
+      ["GPT‑4o",62.5,50,93.6,90,72,55,55.2,77.88,69.52],
+      ["Llama 3.1 70B",77.78,44.44,96.8,83,69.8,50.6,51.4,75.88,68.71],
+      ["GPT‑4.1",66.67,66.7,89.4,89.8,73.6,19.4,50.6,54.8,63.9],
+      ["o3",83.3,20,92.4,88,76.4,30.8,59.6,55.6,63.9],
+      ["Claude 3.5 Haiku",45,40,82.7,84.8,67.6,55.2,56.4,70.64,62.79],
+      ["o1‑mini",50,50,80.3,74.4,37.4,49.6,48.6,53.7,60.3],
+      ["o1‑preview",16.67,16.6,82.5,88.7,77.4,56.4,51.4,50.1,59.7],
+      ["GPT‑4.1 mini",50,50,90.6,89.2,73.6,19.8,45,52.8,58.9],
+      ["GPT‑4o mini",22.22,19.44,91.4,88.8,67.8,47.6,47,79.71,58.0],
+      ["Llama 3.1 8B",23.61,16.67,88,77.2,60.6,49.6,48.6,73.63,54.74],
+      ["GPT‑3.5",16.67,16.67,94.2,85.8,61.2,48,47,54.34,52.99],
+      ["Phi‑3.5 mini",8.33,16.67,87,66.8,71,45,44.2,71.97,51.37],
+      ["o4‑mini",66.7,20,92,84.6,70,32.2,57.4,52.4,50.8],
+      ["Llama 3.2 3B",9.72,16.67,83.4,67,58.4,46.6,46.4,73.23,50.18],
+      ["GPT‑4.1 nano",16.67,16.67,87,73.8,63.6,30,43.8,48.8,47.5],
+      ["Naive baseline",19.44,22.22,52.4,50.4,25,50,47.8,83.24,43.81],
+      ["Llama 3.2 1B",8.33,16.67,42,30,50.6,48.6,43.8,66.69,38.34]
+    ],
+    method:[["Tasks","8 environments across offense sims, detection, CTI knowledge, code vulnerabilities"],
+            ["Metric","Win rate (CyberBattleSim), macro‑F1 (detection, MCQA, vuln), CodeBLEU (CVEfix)"],
+            ["Baseline","A naive baseline scores 43.81, and 83.24 on CVEfix alone"]],
+    caveat:"The code tasks barely beat chance: vulnerability-detection F1 sits near 50, and the naive baseline beats every model on CVEfix CodeBLEU. The model list stops at early 2025. You asked for \"Defense Bench\"; this is the closest published match I could find."
+  }
+];
+
+const $ = s => document.querySelector(s);
+const esc = s => String(s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+
+// Cards
+$("#cards").innerHTML = B.map(b => {
+  const m = b.meter;
+  const passMark = m.pass != null ? `<b style="left:${m.pass}%" title="Threshold ${m.pass}%"></b>` : "";
+  const baseMark = m.base != null ? `<b style="left:${m.base}%;background:var(--ink-3)" title="Naive baseline ${m.base}"></b>` : "";
+  const cap = m.pass != null ? `<span>bar ${m.pass}%</span>` : m.base != null ? `<span>baseline ${m.base}</span>` : `<span>${m.lo}</span>`;
+  return `<button class="card" data-go="${b.id}" aria-label="Open ${esc(b.name)} leaderboard">
+    <div class="top"><div><h3>${esc(b.name)}</h3><div class="who">${esc(b.org)} · ${esc(b.date)}</div></div>
+      <span class="chip ${b.status[0]}">${esc(b.status[1])}</span></div>
+    <p class="task">${esc(b.kind)}</p>
+    <div class="lead"><span class="big num">${esc(b.big)}</span><span class="leader">${esc(b.bigUnit)} · ${esc(b.leader)}</span></div>
+    <div><div class="meter"><i style="width:${m.v}%"></i>${passMark}${baseMark}</div>
+    <div class="meter-cap">${cap}<span>${m.hi}</span></div></div>
+  </button>`;
+}).join("");
+
+// Landscape
+$("#landscape").innerHTML = B.map(b => `<tr>
+  <td>${esc(b.name)}<span class="small">${esc(b.org)}</span></td>
+  <td>${esc(b.task)}</td><td>${esc(b.input)}</td><td>${esc(b.scoring)}</td>
+  <td class="r num">${b.rows.filter(r=>r[0]!=="Naive baseline").length}</td>
+  <td><span class="chip ${b.status[0]}">${esc(b.status[1])}</span></td></tr>`).join("");
+
+// Scatter: CDB coverage (x) vs CWE-bench pass@1 (y)
+(function(){
+  const pts = [
+    ["GPT‑5.6 Sol",0.410,44.2,"r"],["Grok 4.6",0.413,38.2,"r"],["Claude Opus 4.8",0.327,42.0,"r"],
+    ["Gemini 3.7 Flash",0.291,44.0,"l"],["Qwen 3.8 Max",0.295,37.5,"l"],["DeepSeek V4 Flash",0.297,30.4,"r"],
+    ["Kimi K3",0.330,22.5,"r"],["MiniMax 3",0.155,22.7,"r"]
+  ];
+  const L=62,R=580,T=18,Bm=330, x0=0.1,x1=0.5,y0=15,y1=50;
+  const sx=v=>L+(v-x0)/(x1-x0)*(R-L), sy=v=>Bm-(v-y0)/(y1-y0)*(Bm-T);
+  let s="";
+  [0.1,0.2,0.3,0.4,0.5].forEach(v=>{s+=`<line class="grid" x1="${sx(v)}" x2="${sx(v)}" y1="${T}" y2="${Bm}"/><text x="${sx(v)}" y="${Bm+16}" text-anchor="middle">${v.toFixed(1)}</text>`});
+  [20,30,40,50].forEach(v=>{s+=`<line class="grid" x1="${L}" x2="${R}" y1="${sy(v)}" y2="${sy(v)}"/><text x="${L-8}" y="${sy(v)+4}" text-anchor="end">${v}%</text>`});
+  s+=`<text class="axis-title" x="${(L+R)/2}" y="${Bm+38}" text-anchor="middle">CYBER DEFENSE BENCHMARK · COVERAGE (hunting) →</text>`;
+  s+=`<text class="axis-title" transform="translate(16 ${(T+Bm)/2}) rotate(-90)" text-anchor="middle">CWE-BENCH · PASS@1 (patching) →</text>`;
+  pts.forEach(([n,x,y,side])=>{
+    const cx=sx(x), cy=sy(y);
+    s+=`<circle class="pt" cx="${cx}" cy="${cy}" r="6"><title>${n}: coverage ${x}, pass@1 ${y}%</title></circle>`;
+    s+=`<text class="pt-label" x="${side==="r"?cx+10:cx-10}" y="${cy+4}" text-anchor="${side==="r"?"start":"end"}">${n}</text>`;
+  });
+  $("#scatter").innerHTML = s;
+})();
+
+// Tabs + detail
+function bar(pct, passPct){ return `<div class="bar-track"><i style="width:${Math.max(0,Math.min(100,pct))}%"></i>${passPct!=null?`<b style="left:${passPct}%"></b>`:""}</div>`; }
+function dots(n){ let d=""; for(let i=0;i<13;i++) d+=`<s class="${i<n?"on":""}"></s>`; return `<span class="dots" aria-label="${n} of 13 tactics above 50% recall">${d}</span>`; }
+
+function renderDetail(b){
+  let chart="";
+  if(b.id==="cdb"){
+    chart = `<div class="bars">`+b.rows.map((r,i)=>`<div class="bar-row${i===0?" first":""}"><span class="name">${esc(r[0])}</span>${bar(r[1]/b.max*100)}<span class="val">${dots(r[4])}<strong>${r[1].toFixed(3)}</strong></span></div>`).join("")+`</div>
+    <div class="bar-legend"><span><i class="sw"></i>Coverage score (axis 0–0.5)</span><span><span class="dots"><s class="on"></s></span>Tactics with >50% recall, of 13</span></div>
+    <div class="scroll" style="margin-top:14px"><table><thead><tr><th>Model</th><th class="r">Coverage</th><th class="r">Flag %</th><th class="r">Cost / run</th><th class="r">Tactics &gt;50%</th></tr></thead><tbody>`+
+    b.rows.map(r=>`<tr><td>${esc(r[0])}</td><td class="r num">${r[1].toFixed(3)}</td><td class="r num">${r[2].toFixed(2)}%</td><td class="r num">$${r[3].toFixed(2)}</td><td class="r num">${r[4]}/13</td></tr>`).join("")+`</tbody></table></div>`;
+  } else if(b.id==="defb"){
+    chart = `<div class="bars">`+b.rows.map((r,i)=>`<div class="bar-row${i===0?" first":""}"><span class="name">${esc(r[0])}</span>${bar(r[9], b.base)}<span class="val"><strong>${r[9].toFixed(2)}</strong></span></div>`).join("")+`</div>
+    <div class="bar-legend"><span><i class="sw"></i>DefenderBench score (0–100)</span><span><i class="ln"></i>Naive baseline, 43.81</span></div>
+    <div class="scroll" style="margin-top:14px"><table class="heat"><thead><tr><th>Model</th>${b.cols.map(c=>`<th class="r">${c}</th>`).join("")}</tr></thead><tbody>`+
+    b.rows.map((r,i)=>`<tr class="${r[0]==="Naive baseline"?"hl":""}"><td>${esc(r[0])}</td>${r.slice(1).map(v=>`<td class="h num" style="background:color-mix(in srgb, var(--accent) ${Math.round(v*0.32)}%, transparent)">${v.toFixed(1)}</td>`).join("")}</tr>`).join("")+`</tbody></table></div>`;
+  } else {
+    const passPct = b.pass!=null ? b.pass/b.max*100 : null;
+    chart = `<div class="bars">`+b.rows.map((r,i)=>{
+      let extra="";
+      if(b.id==="cwe") extra=`<span style="color:var(--ink-3)">${esc(r[2])} · $${r[3].toFixed(2)}</span> `;
+      if(b.id==="cybench" && r[2]!==40) extra=`<span style="color:var(--ink-3)" title="Run on ${r[2]} of 40 tasks">n=${r[2]}</span> `;
+      return `<div class="bar-row${i===0?" first":""}"><span class="name">${esc(r[0])}</span>${bar(r[1]/b.max*100, passPct)}<span class="val">${extra}<strong>${r[1]}%</strong></span></div>`;
+    }).join("")+`</div>
+    <div class="bar-legend"><span><i class="sw"></i>${b.id==="cwe"?"pass@1 (axis 0–60%)":b.id==="cybench"?"Unguided % solved":"Score"}</span>${b.pass!=null?`<span><i class="ln"></i>${b.id==="cwe"?"Majority (50%)":"70% autonomy bar"}</span>`:""}${b.id==="cwe"?`<span>Harness · avg cost per rollout</span>`:""}${b.id==="cybench"?`<span>n = tasks run, when not all 40</span>`:""}</div>`;
+  }
+  $("#detail").innerHTML = `<div class="detail" style="margin-top:18px">
+    <div>${chart}</div>
+    <aside class="method">
+      <div><div class="eyebrow">${esc(b.org)} · ${esc(b.date)}</div><h3 style="margin-top:4px">${esc(b.name)}</h3></div>
+      <p class="sub">${esc(b.task)}</p>
+      <dl>${b.method.map(([k,v])=>`<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join("")}</dl>
+      <p class="caveat"><strong>Caveat.</strong> ${esc(b.caveat)}</p>
+    </aside></div>`;
+}
+function select(id, focus){
+  document.querySelectorAll(".tab").forEach(t=>{const on=t.dataset.id===id; t.setAttribute("aria-selected",on); t.tabIndex=on?0:-1; if(on&&focus)t.focus();});
+  renderDetail(B.find(b=>b.id===id));
+  try{localStorage.setItem("bte-tab",id)}catch(e){}
+}
+$("#tabs").innerHTML = B.map(b=>`<button class="tab" role="tab" data-id="${b.id}">${esc(b.name)}</button>`).join("");
+$("#tabs").addEventListener("click",e=>{const t=e.target.closest(".tab"); if(t) select(t.dataset.id);});
+$("#tabs").addEventListener("keydown",e=>{
+  if(!["ArrowRight","ArrowLeft"].includes(e.key)) return;
+  const ids=B.map(b=>b.id), cur=ids.indexOf(document.activeElement.dataset.id);
+  select(ids[(cur+(e.key==="ArrowRight"?1:-1)+ids.length)%ids.length], true);
+});
+$("#cards").addEventListener("click",e=>{const c=e.target.closest(".card"); if(c){select(c.dataset.go); $("#tabs").scrollIntoView({behavior:"smooth",block:"start"});}});
+let start="cdb"; try{start=localStorage.getItem("bte-tab")||"cdb"}catch(e){}
+select(B.some(b=>b.id===start)?start:"cdb");
+</script>
+</body>
+</html>
